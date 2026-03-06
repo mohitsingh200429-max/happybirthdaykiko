@@ -2,7 +2,7 @@
 
 import { motion } from 'motion/react';
 import Image from 'next/image';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 type Memory =
   | { type: 'image'; src: string; caption: string }
@@ -18,26 +18,30 @@ const memories: Memory[] = [
 export default function MemoryGallery() {
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
 
-  const playVideo = (index: number) => {
-    const video = videoRefs.current[index];
-    if (video) video.play();
-  };
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const video = entry.target as HTMLVideoElement;
 
-  const pauseVideo = (index: number) => {
-    const video = videoRefs.current[index];
-    if (video) video.pause();
-  };
+          if (entry.isIntersecting) {
+            video.play().catch(() => {});
+          } else {
+            video.pause();
+          }
+        });
+      },
+      {
+        threshold: 0.6
+      }
+    );
 
-  const toggleVideo = (index: number) => {
-    const video = videoRefs.current[index];
-    if (!video) return;
+    videoRefs.current.forEach((video) => {
+      if (video) observer.observe(video);
+    });
 
-    if (video.paused) {
-      video.play();
-    } else {
-      video.pause();
-    }
-  };
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <section className="py-32 px-6 bg-[#0a0f1c] relative">
@@ -60,30 +64,14 @@ export default function MemoryGallery() {
 
         {/* Gallery */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-
           {memories.map((memory, index) => (
             <motion.div
               key={index}
               initial={{ opacity: 0, scale: 0.95 }}
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true, margin: "-100px" }}
-              transition={{ duration: 0.8, delay: index * 0.2 }}
+              transition={{ duration: 0.8, delay: index * 0.15 }}
               className="group relative overflow-hidden rounded-3xl aspect-[4/3]"
-              onMouseEnter={
-                memory.type === 'video'
-                  ? () => playVideo(index)
-                  : undefined
-              }
-              onMouseLeave={
-                memory.type === 'video'
-                  ? () => pauseVideo(index)
-                  : undefined
-              }
-              onClick={
-                memory.type === 'video'
-                  ? () => toggleVideo(index)
-                  : undefined
-              }
             >
 
               {/* IMAGE */}
@@ -92,6 +80,8 @@ export default function MemoryGallery() {
                   src={memory.src}
                   alt={memory.caption}
                   fill
+                  quality={85}
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px"
                   className="object-cover transition-transform duration-700 group-hover:scale-110"
                 />
               )}
@@ -106,12 +96,13 @@ export default function MemoryGallery() {
                   muted
                   loop
                   playsInline
-                  preload="auto"
+                  autoPlay
+                  preload="metadata"
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                 />
               )}
 
-              {/* Caption Overlay */}
+              {/* Caption */}
               <div className="absolute inset-0 bg-gradient-to-t from-[#0a0f1c]/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex items-end p-8">
                 <p className="text-2xl font-serif text-[#fde2e4] translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
                   {memory.caption}
@@ -120,8 +111,8 @@ export default function MemoryGallery() {
 
             </motion.div>
           ))}
-
         </div>
+
       </div>
     </section>
   );
